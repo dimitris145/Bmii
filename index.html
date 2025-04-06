@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Υγεία και Βάρος</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      background: #f5f5f5;
+    }
+    h1, h2 {
+      color: #2b3e50;
+    }
+    label {
+      display: block;
+      margin: 10px 0;
+    }
+    input {
+      margin-left: 10px;
+      padding: 4px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 6px 12px;
+      background-color: #2b3e50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    table {
+      width: 100%;
+      margin-top: 10px;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 8px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    canvas {
+      margin-top: 20px;
+      background: white;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Υγεία και Βάρος</h1>
+
+  <section>
+    <label>Ηλικία: <input type="number" id="age"></label>
+    <label>Ύψος (cm): <input type="number" id="height"></label>
+    <label>Βάρος (kg): <input type="number" id="weight"></label>
+    <button onclick="calculateBMI()">Υπολόγισε BMI</button>
+    <p id="bmiResult"></p>
+    <p id="bmiCategory"></p>
+  </section>
+
+  <hr />
+
+  <section>
+    <h2>Καταγραφή Μετρήσεων</h2>
+    <label>Ημερομηνία: <input type="date" id="logDate"></label>
+    <label>Βάρος: <input type="number" id="logWeight"></label>
+    <label>Λίπος (%): <input type="number" id="logFat"></label>
+    <label>Νερό (%): <input type="number" id="logWater"></label>
+    <button onclick="addEntry()">Καταγραφή</button>
+  </section>
+
+  <section>
+    <h2>Ιστορικό</h2>
+    <table id="historyTable">
+      <thead>
+        <tr>
+          <th>Ημερομηνία</th>
+          <th>Βάρος</th>
+          <th>Λίπος</th>
+          <th>Νερό</th>
+          <th>Ενέργεια</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button onclick="exportCSV()">Εξαγωγή CSV</button>
+  </section>
+
+  <section>
+    <h2>Διαγράμματα</h2>
+    <canvas id="weightChart" height="150"></canvas>
+    <canvas id="fatChart" height="150"></canvas>
+    <canvas id="waterChart" height="150"></canvas>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    let entries = JSON.parse(localStorage.getItem('entries') || '[]');
+    const historyBody = document.querySelector('#historyTable tbody');
+
+    function calculateBMI() {
+      const age = +document.getElementById('age').value;
+      const height = +document.getElementById('height').value;
+      const weight = +document.getElementById('weight').value;
+      const bmi = (weight / ((height / 100) ** 2)).toFixed(1);
+
+      document.getElementById('bmiResult').innerText = `BMI: ${bmi}`;
+      let category = '';
+      if (bmi < 18.5) category = 'Λιποβαρής';
+      else if (bmi < 25) category = 'Φυσιολογικός';
+      else if (bmi < 30) category = 'Υπέρβαρος';
+      else category = 'Παχύσαρκος';
+      document.getElementById('bmiCategory').innerText = `Κατηγορία: ${category}`;
+    }
+
+    function addEntry() {
+      const entry = {
+        date: document.getElementById('logDate').value,
+        weight: +document.getElementById('logWeight').value,
+        fat: +document.getElementById('logFat').value,
+        water: +document.getElementById('logWater').value,
+      };
+      entries.push(entry);
+      localStorage.setItem('entries', JSON.stringify(entries));
+      renderTable();
+      renderCharts();
+    }
+
+    function deleteEntry(index) {
+      entries.splice(index, 1);
+      localStorage.setItem('entries', JSON.stringify(entries));
+      renderTable();
+      renderCharts();
+    }
+
+    function renderTable() {
+      historyBody.innerHTML = '';
+      entries.forEach((e, i) => {
+        const row = historyBody.insertRow();
+        row.innerHTML = `
+          <td>${e.date}</td>
+          <td>${e.weight}</td>
+          <td>${e.fat}</td>
+          <td>${e.water}</td>
+          <td><button onclick="deleteEntry(${i})">Διαγραφή</button></td>
+        `;
+      });
+    }
+
+    function exportCSV() {
+      const rows = [['Ημερομηνία', 'Βάρος', 'Λίπος', 'Νερό']];
+      entries.forEach(e => rows.push([e.date, e.weight, e.fat, e.water]));
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'katagrafes.csv';
+      a.click();
+    }
+
+    function renderCharts() {
+      const labels = entries.map(e => e.date);
+      const weights = entries.map(e => e.weight);
+      const fats = entries.map(e => e.fat);
+      const waters = entries.map(e => e.water);
+
+      new Chart(document.getElementById('weightChart'), {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Βάρος', data: weights, borderColor: 'blue', fill: false }] },
+        options: { responsive: true }
+      });
+
+      new Chart(document.getElementById('fatChart'), {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Λίπος', data: fats, borderColor: 'red', fill: false }] },
+        options: { responsive: true }
+      });
+
+      new Chart(document.getElementById('waterChart'), {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Νερό', data: waters, borderColor: 'green', fill: false }] },
+        options: { responsive: true }
+      });
+    }
+
+    renderTable();
+    renderCharts();
+  </script>
+</body>
+</html>
